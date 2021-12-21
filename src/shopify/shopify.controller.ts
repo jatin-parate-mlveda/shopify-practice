@@ -29,7 +29,7 @@ export class ShopifyController {
     redirectUri.searchParams.set('scope', this.configService.get<string>('SCOPES'));
     redirectUri.searchParams.set('redirect_uri', shopifyRedirectUri.toString());
     redirectUri.searchParams.set('state', nonce);
-    redirectUri.searchParams.set('grant_options[]', 'per-user');
+    // redirectUri.searchParams.set('grant_options[]', 'per-user');
 
     res.cookie('state', nonce);
 
@@ -39,11 +39,12 @@ export class ShopifyController {
   @Get('/callback')
   async authCallback(
     @Req() req: Request & { rawBody: string },
+    @Res() res: Response,
     @Next() next: NextFunction,
     @Query('shop') shop: string,
-    // @Query('hmac') hmac: string,
+    @Query('hmac') hmac: string,
     @Query('code') code: string,
-    // @Query('timestamp') timestamp?: string,
+    @Query() query: Record<string, string>,
     @Query('state') state?: string,
   ) {
     try {
@@ -51,10 +52,32 @@ export class ShopifyController {
         return next(new UnauthorizedException('Invalid nonce!'));
       }
 
-      const res = await this.shopifyService.generateOauthToken(shop, code).toPromise();
-      return res.data;
+      let hashEquals: boolean;
+      try {
+        const generatedHash = ShopifyService.getHmacHash(
+          this.configService.get<string>('API_SECRET'),
+          ShopifyService.generateKvp(query),
+        );
+
+        hashEquals = generatedHash === hmac.toUpperCase();
+      } catch {
+        hashEquals = false
+      }
+
+      console.log(66, hashEquals, shop);
+
+      if (!hashEquals) {
+        return next(new UnauthorizedException('Hmac validation failed'));
+      }
+
+      await this.shopifyService.generateOauthToken(shop, code)
+        .subscribe(result => {
+          res.json(result.data);
+        }, err => {
+          throw err;
+        })
     } catch (err) {
-      console.error(err, err.response?.body);
+      console.error(err.response?.body);
       throw new InternalServerErrorException();
     }
   }
