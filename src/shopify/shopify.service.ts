@@ -4,24 +4,17 @@ import {ConfigService} from "@nestjs/config";
 import {catchError, map, Observable} from "rxjs";
 import {AxiosResponse} from 'axios'
 import {createHmac} from "crypto";
+import {InjectModel} from "@nestjs/mongoose";
+import {AccessToken, AccessTokenDocument} from "./models/access-token.schema";
+import {Model} from "mongoose";
 
 @Injectable()
 export class ShopifyService {
-  constructor(private readonly httpService: HttpService, private readonly configService: ConfigService) {
-  }
-
-  generateOauthToken(shop: string, code: string): Observable<AxiosResponse<{ access_token: string, scope: string }>> {
-    return this.httpService.post(`https://${shop}/admin/oauth/access_token`, {
-      client_id: this.configService.get<string>('API_KEY'),
-      client_secret: this.configService.get<string>('API_SECRET'),
-      code,
-    }, {timeout: 1000 * 3}).pipe(map(res => {
-      console.log('res', res.data);
-      return res;
-    }), catchError(err => {
-      console.log(19, err.response?.body);
-      throw err;
-    }))
+  constructor(
+    private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
+    @InjectModel(AccessToken.name) private readonly accessTokenModel: Model<AccessTokenDocument>,
+  ) {
   }
 
   static replaceChars(s: string, isKey: boolean) {
@@ -62,4 +55,29 @@ export class ShopifyService {
 
     return hash.toUpperCase();
   };
+
+  storeAccessToken(accessToken: string, shop: string) {
+    return this.accessTokenModel.updateOne(
+      {shop},
+      {
+        accessToken,
+        shop,
+      },
+      {upsert: true},
+    );
+  }
+
+  generateOauthToken(shop: string, code: string): Observable<AxiosResponse<{ access_token: string, scope: string }>> {
+    return this.httpService.post(`https://${shop}/admin/oauth/access_token`, {
+      client_id: this.configService.get<string>('API_KEY'),
+      client_secret: this.configService.get<string>('API_SECRET'),
+      code,
+    }, {timeout: 1000 * 3}).pipe(map(res => {
+      console.log('res', res.data);
+      return res;
+    }), catchError(err => {
+      console.log(19, err.response?.body);
+      throw err;
+    }))
+  }
 }

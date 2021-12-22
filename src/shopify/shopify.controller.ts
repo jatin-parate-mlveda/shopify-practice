@@ -7,18 +7,19 @@ import {
   Query,
   Req,
   Res,
-  UnauthorizedException
+  UnauthorizedException,
 } from '@nestjs/common';
 import {NextFunction, Request, Response} from "express";
 import {ConfigService} from "@nestjs/config";
 import {randomBytes} from 'crypto'
 import {URL} from "url";
 import {ShopifyService} from "./shopify.service";
-import {catchError, map, throwError} from "rxjs";
+import {catchError, from, map, throwError} from "rxjs";
 
 @Controller('shopify')
 export class ShopifyController {
-  private logger: Logger;
+  private readonly logger: Logger;
+
   constructor(
     private readonly configService: ConfigService,
     private readonly shopifyService: ShopifyService,
@@ -80,11 +81,13 @@ export class ShopifyController {
 
       return this.shopifyService.generateOauthToken(shop, code)
         .pipe(
-          map(result => {
-            return result.data;
-          }),
+          map(result =>
+            from(
+              this.shopifyService.storeAccessToken(result.data.access_token, shop),
+            )),
+          map(() => ({message: 'Successfully authenticated', shop})),
           catchError(err => {
-            this.logger.error(err);
+            this.logger.error(err, {shop});
             return throwError(() => new InternalServerErrorException());
           }),
         );
