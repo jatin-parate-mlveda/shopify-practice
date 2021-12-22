@@ -13,6 +13,7 @@ import {ConfigService} from "@nestjs/config";
 import {randomBytes} from 'crypto'
 import {URL} from "url";
 import {ShopifyService} from "./shopify.service";
+import {catchError, map, throwError} from "rxjs";
 
 @Controller('shopify')
 export class ShopifyController {
@@ -39,7 +40,6 @@ export class ShopifyController {
   @Get('/callback')
   async authCallback(
     @Req() req: Request & { rawBody: string },
-    @Res() res: Response,
     @Next() next: NextFunction,
     @Query('shop') shop: string,
     @Query('hmac') hmac: string,
@@ -53,6 +53,7 @@ export class ShopifyController {
       }
 
       let hashEquals: boolean;
+
       try {
         const generatedHash = ShopifyService.getHmacHash(
           this.configService.get<string>('API_SECRET'),
@@ -61,24 +62,22 @@ export class ShopifyController {
 
         hashEquals = generatedHash === hmac.toUpperCase();
       } catch {
-        hashEquals = false
+        hashEquals = false;
       }
-
-      console.log(66, hashEquals, shop);
 
       if (!hashEquals) {
         return next(new UnauthorizedException('Hmac validation failed'));
       }
 
-      await this.shopifyService.generateOauthToken(shop, code)
-        .subscribe(result => {
-          res.json(result.data);
-        }, err => {
-          throw err;
-        })
+      return this.shopifyService.generateOauthToken(shop, code)
+        .pipe(map(result => {
+          return result.data;
+        }), catchError(err => {
+          console.error(err);
+          return throwError(() => new InternalServerErrorException());
+        }));
     } catch (err) {
-      console.error(err.response?.body);
-      throw new InternalServerErrorException();
+      throw new InternalServerErrorException(err.response?.body ?? err.message);
     }
   }
 }
