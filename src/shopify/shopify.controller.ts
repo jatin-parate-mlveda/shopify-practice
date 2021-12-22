@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   InternalServerErrorException,
+  Logger,
   Next,
   Query,
   Req,
@@ -17,7 +18,12 @@ import {catchError, map, throwError} from "rxjs";
 
 @Controller('shopify')
 export class ShopifyController {
-  constructor(private readonly configService: ConfigService, private readonly shopifyService: ShopifyService) {
+  private logger: Logger;
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly shopifyService: ShopifyService,
+  ) {
+    this.logger = new Logger(ShopifyController.name)
   }
 
   @Get('/request')
@@ -38,8 +44,9 @@ export class ShopifyController {
   }
 
   @Get('/callback')
-  async authCallback(
+  authCallback(
     @Req() req: Request & { rawBody: string },
+    @Res() res: Response,
     @Next() next: NextFunction,
     @Query('shop') shop: string,
     @Query('hmac') hmac: string,
@@ -51,6 +58,8 @@ export class ShopifyController {
       if (!state || !req.cookies.state || state !== req.cookies.state) {
         return next(new UnauthorizedException('Invalid nonce!'));
       }
+
+      res.clearCookie('state');
 
       let hashEquals: boolean;
 
@@ -70,12 +79,15 @@ export class ShopifyController {
       }
 
       return this.shopifyService.generateOauthToken(shop, code)
-        .pipe(map(result => {
-          return result.data;
-        }), catchError(err => {
-          console.error(err);
-          return throwError(() => new InternalServerErrorException());
-        }));
+        .pipe(
+          map(result => {
+            return result.data;
+          }),
+          catchError(err => {
+            this.logger.error(err);
+            return throwError(() => new InternalServerErrorException());
+          }),
+        );
     } catch (err) {
       throw new InternalServerErrorException(err.response?.body ?? err.message);
     }
