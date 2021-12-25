@@ -4,6 +4,8 @@ import {AppService} from './app.service';
 import {ShopifyModule} from './shopify/shopify.module';
 import {ConfigModule, ConfigService} from "@nestjs/config";
 import {MongooseModule} from "@nestjs/mongoose";
+import { ShopModule } from './shop/shop.module';
+import { AccessTokenModule } from './access-token/access-token.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import {MongooseModule} from "@nestjs/mongoose";
         }),
     }),
     ShopifyModule,
+    ShopModule,
+    AccessTokenModule,
   ],
   controllers: [AppController],
   providers: [AppService],

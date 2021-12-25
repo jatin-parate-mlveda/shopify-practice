@@ -14,7 +14,9 @@ import {ConfigService} from "@nestjs/config";
 import {randomBytes} from 'crypto'
 import {URL} from "url";
 import {ShopifyService} from "./shopify.service";
-import {catchError, from, map, throwError} from "rxjs";
+import {catchError, from, map, switchMap, throwError, of} from "rxjs";
+import {AccessTokenService} from "../access-token/access-token.service";
+import {ShopService} from "../shop/shop.service";
 
 @Controller('shopify')
 export class ShopifyController {
@@ -23,6 +25,8 @@ export class ShopifyController {
   constructor(
     private readonly configService: ConfigService,
     private readonly shopifyService: ShopifyService,
+    private readonly shopService: ShopService,
+    private readonly accessTokenService: AccessTokenService,
   ) {
     this.logger = new Logger(ShopifyController.name)
   }
@@ -49,13 +53,10 @@ export class ShopifyController {
     @Req() req: Request & { rawBody: string },
     @Res() res: Response,
     @Next() next: NextFunction,
-    @Query('shop') shop: string,
-    @Query('hmac') hmac: string,
-    @Query('code') code: string,
     @Query() query: Record<string, string>,
-    @Query('state') state?: string,
   ) {
     try {
+      const {shop, hmac, code, state} = query;
       if (!state || !req.cookies.state || state !== req.cookies.state) {
         return next(new UnauthorizedException('Invalid nonce!'));
       }
@@ -79,13 +80,21 @@ export class ShopifyController {
         return next(new UnauthorizedException('Hmac validation failed'));
       }
 
-      return this.shopifyService.generateOauthToken(shop, code)
+      return from(this.accessTokenService.getByShop(shop))
         .pipe(
-          map(result =>
-            from(
-              this.shopifyService.storeAccessToken(result.data.access_token, shop),
-            )),
-          map(() => ({message: 'Successfully authenticated', shop})),
+          switchMap(accessToken => {
+            if (accessToken) {
+              return of({msg: 'Shop already exists'})
+            }
+
+            return this.accessTokenService.generateAndStoreAccessToken(shop, code)
+              .pipe(
+                switchMap(token => {
+                  return this.shopService.fetchAndStoreShopJson(shop, token)
+                }),
+                map(() => ({message: 'Successfully authenticated', shop}))
+              );
+          }),
           catchError(err => {
             this.logger.error(err, {shop});
             return throwError(() => new InternalServerErrorException());
