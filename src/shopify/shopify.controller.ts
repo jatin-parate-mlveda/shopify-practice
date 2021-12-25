@@ -28,7 +28,7 @@ export class ShopifyController {
     private readonly shopService: ShopService,
     private readonly accessTokenService: AccessTokenService,
   ) {
-    this.logger = new Logger(ShopifyController.name)
+    this.logger = new Logger(ShopifyController.name);
   }
 
   @Get('/request')
@@ -41,7 +41,7 @@ export class ShopifyController {
     redirectUri.searchParams.set('scope', this.configService.get<string>('SCOPES'));
     redirectUri.searchParams.set('redirect_uri', shopifyRedirectUri.toString());
     redirectUri.searchParams.set('state', nonce);
-    // redirectUri.searchParams.set('grant_options[]', 'per-user');
+    // redirectUri.searchParams.set('grant_options[]', 'per-user'); // for online auth token
 
     res.cookie('state', nonce);
 
@@ -66,12 +66,7 @@ export class ShopifyController {
       let hashEquals: boolean;
 
       try {
-        const generatedHash = ShopifyService.getHmacHash(
-          this.configService.get<string>('API_SECRET'),
-          ShopifyService.generateKvp(query),
-        );
-
-        hashEquals = generatedHash === hmac.toUpperCase();
+        hashEquals = this.shopifyService.isGeneratedHashEqualsHash(hmac, query);
       } catch {
         hashEquals = false;
       }
