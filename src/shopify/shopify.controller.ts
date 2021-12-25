@@ -18,7 +18,7 @@ import {catchError, from, map, switchMap, throwError, of} from "rxjs";
 import {AccessTokenService} from "../access-token/access-token.service";
 import {ShopService} from "../shop/shop.service";
 
-@Controller('shopify')
+@Controller('')
 export class ShopifyController {
   private readonly logger: Logger;
 
