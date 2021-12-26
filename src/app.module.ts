@@ -1,4 +1,4 @@
-import {Module} from '@nestjs/common';
+import {CacheModule, Module} from '@nestjs/common';
 import {RouterModule} from "@nestjs/core";
 import {AppController} from './app.controller';
 import {AppService} from './app.service';
@@ -20,6 +20,9 @@ import {AccessTokenModule} from './access-token/access-token.module';
           useNewUrlParser: true,
           useUnifiedTopology: true,
         }),
+    }),
+    CacheModule.register({
+      isGlobal: true,
     }),
     AccessTokenModule,
     ShopModule,

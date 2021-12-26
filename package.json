@@ -27,6 +27,8 @@
     "@nestjs/core": "^8.0.0",
     "@nestjs/mongoose": "^9.0.2",
     "@nestjs/platform-express": "^8.0.0",
+    "@types/cache-manager": "^3.4.2",
+    "cache-manager": "^3.6.0",
     "cookie-parser": "^1.4.6",
     "lodash": "^4.17.21",
     "mongoose": "^6.1.3",
