@@ -14,7 +14,7 @@ import {ConfigService} from "@nestjs/config";
 import {randomBytes} from 'crypto'
 import {URL} from "url";
 import {ShopifyService} from "./shopify.service";
-import {catchError, from, map, switchMap, throwError, of} from "rxjs";
+import {catchError, from, map, of, switchMap, throwError} from "rxjs";
 import {AccessTokenService} from "../access-token/access-token.service";
 import {ShopService} from "../shop/shop.service";
 
@@ -50,8 +50,8 @@ export class ShopifyController {
 
   @Get('/callback')
   authCallback(
-    @Req() req: Request & { rawBody: string },
-    @Res() res: Response,
+    @Req() req: Request,
+    @Res({passthrough: true}) res: Response,
     @Next() next: NextFunction,
     @Query() query: Record<string, string>,
   ) {
@@ -84,9 +84,7 @@ export class ShopifyController {
 
             return this.accessTokenService.generateAndStoreAccessToken(shop, code)
               .pipe(
-                switchMap(token => {
-                  return this.shopService.fetchAndStoreShopJson(shop, token)
-                }),
+                switchMap(token => this.shopService.fetchAndStoreShopJson(shop, token)),
                 map(() => ({message: 'Successfully authenticated', shop}))
               );
           }),
@@ -98,5 +96,5 @@ export class ShopifyController {
     } catch (err) {
       throw new InternalServerErrorException(err.response?.body ?? err.message);
     }
-  }
+  };
 }

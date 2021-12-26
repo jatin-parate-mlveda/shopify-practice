@@ -45,12 +45,7 @@ export class AccessTokenService {
         client_secret: this.configService.get<string>('API_SECRET'),
         code,
       },
-      {timeout: 1000 * 3}
-    ).pipe(
-      map(res => {
-        console.log('res', res.data);
-        return res;
-      }),
+      {timeout: 1000 * 3},
     );
   }
 

@@ -4,13 +4,15 @@ import {Shop, ShopDocument} from "./models/shop.schema";
 import {Model, Query, UpdateWriteOpResult} from "mongoose";
 import {IShop} from "shopify-api-node";
 import {HttpService} from "@nestjs/axios";
-import {Observable, switchMap} from "rxjs";
+import {from, Observable, switchMap} from "rxjs";
 import {AxiosResponse} from "axios";
+import {ConfigService} from "@nestjs/config";
 
 @Injectable()
 export class ShopService {
   constructor(
     private readonly httpService: HttpService,
+    private readonly configService: ConfigService,
     @InjectModel(Shop.name) private readonly shopModel: Model<ShopDocument>,
   ) {
   }
@@ -19,7 +21,7 @@ export class ShopService {
     return this.fetchShopJson(shop, accessToken)
       .pipe(
         switchMap(({data: {shop}}) => {
-          return this.create(shop).exec();
+          return from(this.create(shop).exec());
         })
       )
   }
@@ -27,7 +29,7 @@ export class ShopService {
 
   private fetchShopJson(shop: string, accessToken: string): Observable<AxiosResponse<{ shop: IShop }>> {
     return this.httpService
-      .get<{ shop: IShop }>(`https://${shop}/admin/api/shop.json`, {
+      .get<{ shop: IShop }>(`https://${shop}/admin/api/${this.configService.get('API_VERSION')}/shop.json`, {
         headers: {
           'X-Shopify-Access-Token': accessToken,
         },
