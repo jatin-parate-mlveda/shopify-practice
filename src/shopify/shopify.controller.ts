@@ -14,7 +14,7 @@ import {ConfigService} from "@nestjs/config";
 import {randomBytes} from 'crypto'
 import {URL} from "url";
 import {ShopifyService} from "./shopify.service";
-import {catchError, from, map, of, switchMap, throwError} from "rxjs";
+import {from, map, of, switchMap} from "rxjs";
 import {AccessTokenService} from "../access-token/access-token.service";
 import {ShopService} from "../shop/shop.service";
 
@@ -88,12 +88,11 @@ export class ShopifyController {
                 map(() => ({message: 'Successfully authenticated', shop}))
               );
           }),
-          catchError(err => {
-            this.logger.error(err, {shop});
-            return throwError(() => new InternalServerErrorException());
-          }),
         );
     } catch (err) {
+      this.logger.error(`in: ${ShopifyController.name}`, err.stack, {
+        shop: query.shop,
+      });
       throw new InternalServerErrorException(err.response?.body ?? err.message);
     }
   };
